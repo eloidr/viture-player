@@ -44,20 +44,17 @@
         }
         .video-container {
             position: absolute; top: 50%; left: 50%;
-            transform: translate(-50%, -50%); /* Posición inicial centrada */
+            /* El transform se aplicará dinámicamente con JS */
             background: #000; border-radius: 8px; overflow: hidden;
             box-shadow: 0 4px 20px rgba(0,0,0,0.5);
             z-index: 10;
             width: 60vw; aspect-ratio: 16 / 9; min-width: 280px;
             will-change: transform, width;
-            /* El contenedor ignora toques para pasarlos al vídeo, a menos que se active el gesto */
-            pointer-events: none;
+            transform-origin: center center;
         }
-        /* El vídeo SÍ responde a toques, para poder usar sus controles */
         video {
             width: 100%; height: 100%; display: block;
             object-fit: contain;
-            pointer-events: auto;
         }
         .controls {
             position: fixed; top: 20px; right: 20px;
@@ -70,7 +67,6 @@
             display: flex; align-items: center; justify-content: center;
             transition: all 0.2s ease;
             border: 1.5px solid rgba(255,255,255,0.15);
-            pointer-events: auto; /* El botón siempre debe ser clickeable */
         }
         .control-btn:active {
             background: rgba(0,0,0,0.9); transform: scale(1.1);
@@ -80,7 +76,7 @@
 </head>
 <body>
     <div class="install-banner" id="installBanner">
-        V7: Instala esta app para una mejor experiencia.
+        V8: Instala esta app para una mejor experiencia.
         <button id="installBtn">Instalar</button>
         <button id="dismissBtn">Cerrar</button>
     </div>
@@ -133,10 +129,18 @@
             }
         });
 
-        // --- Final Pinch-to-Move/Scale Logic (V7) ---
-        let initial = { dist: 0, midX: 0, midY: 0 };
-        let transform = { x: 0, y: 0, scale: 1 };
-        let activeGesture = false;
+        // --- Separated Gesture Logic (V8) ---
+        let state = {
+            x: 0, y: 0, scale: 1,
+            initialDist: 0, initialMidX: 0, initialMidY: 0,
+            activeGesture: null,
+            lastTap: 0
+        };
+
+        // Valores iniciales al cargar la página
+        const rect = videoContainer.getBoundingClientRect();
+        state.x = rect.left + rect.width / 2 - window.innerWidth / 2;
+        state.y = rect.top + rect.height / 2 - window.innerHeight / 2;
 
         function getMidpoint(p1, p2) {
             return { x: (p1.clientX + p2.clientX) / 2, y: (p1.clientY + p2.clientY) / 2 };
@@ -147,81 +151,96 @@
         }
 
         function applyTransform() {
-            const newWidth = videoContainer.dataset.initialWidth * transform.scale;
-            const newHeight = newWidth / (16 / 9);
-
-            const minX = (newWidth / 2) - (window.innerWidth / 2);
-            const maxX = (window.innerWidth / 2) - (newWidth / 2);
-            const minY = (newHeight / 2) - (window.innerHeight / 2);
-            const maxY = (window.innerHeight / 2) - (newHeight / 2);
-
-            transform.x = Math.max(minX, Math.min(transform.x, maxX));
-            transform.y = Math.max(minY, Math.min(transform.y, maxY));
+            // Limitar la escala
+            state.scale = Math.max(0.5, Math.min(state.scale, 3));
             
-            videoContainer.style.width = `${newWidth}px`;
-            videoContainer.style.transform = `translate(${transform.x}px, ${transform.y}px) scale(${transform.scale})`;
+            const currentWidth = videoContainer.offsetWidth;
+            const currentHeight = videoContainer.offsetHeight;
+
+            // Limitar la posición (los límites de los marcos)
+            const maxX = (window.innerWidth - currentWidth) / 2;
+            const minX = -maxX;
+            const maxY = (window.innerHeight - currentHeight) / 2;
+            const minY = -maxY;
+
+            state.x = Math.max(minX, Math.min(state.x, maxX));
+            state.y = Math.max(minY, Math.min(state.y, maxY));
+            
+            videoContainer.style.transform = `translate(${state.x}px, ${state.y}px) scale(${state.scale})`;
         }
 
         function onTouchStart(e) {
-            // SOLO activamos el gesto si hay DOS dedos en la pantalla
-            if (e.touches.length === 2) {
+            // Doble tap para recentrar
+            const now = Date.now();
+            if (now - state.lastTap < 300 && e.touches.length === 1) {
+                state.x = 0;
+                state.y = 0;
+                state.scale = 1;
+                videoContainer.style.transition = 'transform 0.3s ease';
+                applyTransform();
+                setTimeout(() => videoContainer.style.transition = '', 300);
                 e.preventDefault();
-                activeGesture = true;
-                
-                // Habilitamos los toques en el contenedor para poder arrastrarlo
-                videoContainer.style.pointerEvents = 'auto';
-
-                const rect = videoContainer.getBoundingClientRect();
-                const style = window.getComputedStyle(videoContainer);
-                const matrix = new DOMMatrixReadOnly(style.transform);
-
-                transform.x = matrix.m41;
-                transform.y = matrix.m42;
-                transform.scale = matrix.a;
-
-                // Guardamos el tamaño inicial sin escalar para cálculos
-                videoContainer.dataset.initialWidth = rect.width / transform.scale;
-                
-                initial.dist = getDistance(e.touches[0], e.touches[1]);
-                initial.midX = getMidpoint(e.touches[0], e.touches[1]).x;
-                initial.midY = getMidpoint(e.touches[0], e.touches[1]).y;
+                return;
             }
+            state.lastTap = now;
+            
+            // Ignorar toques de 1 dedo para permitir controles del vídeo
+            if (e.touches.length !== 2) {
+                state.activeGesture = null;
+                return;
+            }
+
+            e.preventDefault();
+            videoContainer.style.transition = ''; // Quitar transición si la hubiera
+
+            state.activeGesture = 'pinch-pan';
+            state.initialDist = getDistance(e.touches[0], e.touches[1]);
+            const midpoint = getMidpoint(e.touches[0], e.touches[1]);
+            state.initialMidX = midpoint.x - state.x;
+            state.initialMidY = midpoint.y - state.y;
         }
 
         function onTouchMove(e) {
-            if (!activeGesture || e.touches.length !== 2) return;
+            if (state.activeGesture !== 'pinch-pan' || e.touches.length !== 2) return;
             e.preventDefault();
 
             const currentDist = getDistance(e.touches[0], e.touches[1]);
-            const currentMid = getMidpoint(e.touches[0], e.touches[1]);
+            const midpoint = getMidpoint(e.touches[0], e.touches[1]);
 
-            const scaleChange = currentDist / initial.dist;
-            transform.scale *= scaleChange;
+            // Determinar el gesto dominante
+            const distChange = Math.abs(currentDist - state.initialDist);
+            const posChange = getDistance({clientX: midpoint.x, clientY: midpoint.y}, {clientX: state.initialMidX + state.x, clientY: state.initialMidY + state.y});
             
-            transform.x += currentMid.x - initial.midX;
-            transform.y += currentMid.y - initial.midY;
+            const zoomSensitivity = 1.0; // Ajustar si es necesario
+            const panSensitivity = 1.0;  // Ajustar si es necesario
             
+            // Umbral para decidir si es zoom o pan
+            if (distChange > posChange + 5) {
+                // Es ZOOM
+                const scaleChange = currentDist / state.initialDist;
+                state.scale *= (1 + (scaleChange - 1) * zoomSensitivity);
+            } else {
+                // Es MOVER (PAN)
+                state.x = midpoint.x - state.initialMidX * panSensitivity;
+                state.y = midpoint.y - state.initialMidY * panSensitivity;
+            }
+
             applyTransform();
-            
-            // Actualizamos los valores iniciales para el siguiente movimiento
-            initial.dist = currentDist;
-            initial.midX = currentMid.x;
-            initial.midY = currentMid.y;
+
+            // Actualizar el estado inicial para el siguiente frame
+            state.initialDist = currentDist;
+            state.initialMidX = midpoint.x - state.x;
+            state.initialMidY = midpoint.y - state.y;
         }
 
         function onTouchEnd(e) {
-            if (activeGesture) {
-                activeGesture = false;
-                // Devolvemos el contenedor a su estado normal para que los toques de 1 dedo vayan al vídeo
-                videoContainer.style.pointerEvents = 'none';
-            }
+            state.activeGesture = null;
         }
 
-        // Asignamos los eventos al documento entero para capturar los toques en cualquier lugar
+        // Asignar los eventos al documento entero
         document.addEventListener('touchstart', onTouchStart, { passive: false });
         document.addEventListener('touchmove', onTouchMove, { passive: false });
         document.addEventListener('touchend', onTouchEnd);
-
 
         // --- Service Worker ---
         window.addEventListener('load', () => {
