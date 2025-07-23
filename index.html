@@ -18,11 +18,7 @@
     <meta name="screen-orientation" content="landscape">
 
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
         html, body {
             font-family: Arial, sans-serif;
             background: #000;
@@ -50,9 +46,7 @@
             transform: translateY(-100%);
             transition: transform 0.3s ease;
         }
-        .install-banner.show {
-            transform: translateY(0);
-        }
+        .install-banner.show { transform: translateY(0); }
         .install-banner button {
             background: rgba(255,255,255,0.2);
             border: 1px solid rgba(255,255,255,0.3);
@@ -63,9 +57,7 @@
             cursor: pointer;
             font-size: 12px;
         }
-        .install-banner button:hover {
-            background: rgba(255,255,255,0.3);
-        }
+        .install-banner button:hover { background: rgba(255,255,255,0.3); }
         .video-container {
             position: absolute;
             top: 50%;
@@ -78,36 +70,17 @@
             touch-action: none;
             cursor: move;
             z-index: 10;
-            width: 400px;
-            height: 300px;
+            width: 60vw;
+            height: 40vh;
+            min-width: 280px;
+            min-height: 200px;
             will-change: transform, width, height;
-        }
-        @media screen and (max-width: 1024px) {
-            .video-container {
-                width: 60vw;
-                height: 40vh;
-                min-width: 280px;
-                min-height: 200px;
-            }
         }
         @media screen and (min-width: 1025px) {
             .video-container {
                 resize: both;
-                overflow: hidden;
-                min-width: 300px;
-                min-height: 200px;
                 max-width: 90vw;
                 max-height: 90vh;
-            }
-            .video-container::after {
-                content: '';
-                position: absolute;
-                bottom: 0;
-                right: 0;
-                width: 20px;
-                height: 20px;
-                background: linear-gradient(-45deg, transparent 30%, rgba(255,255,255,0.1) 30%, rgba(255,255,255,0.1) 70%, transparent 70%);
-                pointer-events: none;
             }
         }
         video {
@@ -115,6 +88,8 @@
             height: 100%;
             display: block;
             object-fit: contain;
+            /* Por defecto, el vídeo responde a los toques */
+            pointer-events: auto;
         }
         .controls {
             position: fixed;
@@ -141,49 +116,16 @@
             touch-action: manipulation;
             border: 2px solid rgba(255,255,255,0.2);
         }
-        @media screen and (min-width: 1025px) {
-            .control-btn {
-                width: 60px;
-                height: 60px;
-                font-size: 24px;
-            }
-            .control-btn:hover {
-                background: rgba(0,0,0,0.9);
-                transform: scale(1.1);
-                border-color: rgba(255,255,255,0.4);
-            }
-        }
         .control-btn:active {
             background: rgba(0,0,0,0.9);
             transform: scale(1.1);
         }
-        .orientation-lock {
-            position: fixed;
-            bottom: 20px;
-            left: 20px;
-            background: rgba(0,128,0,0.8);
-            color: white;
-            padding: 8px 16px;
-            border-radius: 20px;
-            font-size: 12px;
-            z-index: 1000;
-            opacity: 0;
-            transition: opacity 0.3s ease;
-        }
-        .orientation-lock.active {
-            opacity: 1;
-        }
-        .orientation-lock.warning {
-            background: rgba(255,165,0,0.9);
-        }
-        #fileInput {
-            display: none;
-        }
+        #fileInput { display: none; }
     </style>
 </head>
 <body>
     <div class="install-banner" id="installBanner">
-        Instala esta app para un control total de la orientación y experiencia mejorada.
+        Instala esta app para una mejor experiencia.
         <button id="installBtn">Instalar</button>
         <button id="dismissBtn">Cerrar</button>
     </div>
@@ -196,35 +138,22 @@
 
     <div class="controls">
         <button class="control-btn" id="loadBtn" title="Cargar video">📂</button>
-        <button class="control-btn" id="lockBtn" title="Bloquear orientación">🔓</button>
-        <button class="control-btn" id="centerBtn" title="Centrar video">⊙</button>
     </div>
 
-    <div class="orientation-lock" id="orientationIndicator"></div>
-
     <script>
-        // Referencias a elementos
         const videoContainer = document.getElementById('videoContainer');
         const videoPlayer = document.getElementById('videoPlayer');
         const fileInput = document.getElementById('fileInput');
         const loadBtn = document.getElementById('loadBtn');
-        const lockBtn = document.getElementById('lockBtn');
-        const centerBtn = document.getElementById('centerBtn');
-        const orientationIndicator = document.getElementById('orientationIndicator');
         const installBanner = document.getElementById('installBanner');
         const installBtn = document.getElementById('installBtn');
         const dismissBtn = document.getElementById('dismissBtn');
 
-        const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || window.innerWidth <= 1024;
-        const isTouch = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
-
-        // ===== PWA INSTALLATION =====
         let deferredPrompt;
-        let isInstalled = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
-
         window.addEventListener('beforeinstallprompt', (e) => {
             e.preventDefault();
             deferredPrompt = e;
+            const isInstalled = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
             if (!isInstalled) {
                 installBanner.classList.add('show');
             }
@@ -236,7 +165,6 @@
                 const { outcome } = await deferredPrompt.userChoice;
                 if (outcome === 'accepted') {
                     installBanner.classList.remove('show');
-                    isInstalled = true;
                 }
                 deferredPrompt = null;
             }
@@ -246,86 +174,7 @@
             installBanner.classList.remove('show');
         });
 
-        window.matchMedia('(display-mode: standalone)').addEventListener('change', (e) => {
-            isInstalled = e.matches;
-            if (isInstalled) {
-                installBanner.classList.remove('show');
-                lockOrientation();
-            }
-        });
-
-        // ===== BLOQUEO DE ORIENTACIÓN =====
-        let orientationLocked = false;
-
-        async function lockOrientation() {
-            try {
-                if (screen.orientation && screen.orientation.lock) {
-                    await screen.orientation.lock('landscape');
-                    orientationLocked = true;
-                    orientationIndicator.textContent = 'Orientación bloqueada';
-                    orientationIndicator.classList.remove('warning');
-                    orientationIndicator.classList.add('active');
-                    lockBtn.innerHTML = '🔒';
-                    lockBtn.style.background = 'rgba(0,128,0,0.8)';
-                    setTimeout(() => { orientationIndicator.classList.remove('active'); }, 2000);
-                    return true;
-                }
-            } catch (error) {
-                console.warn('No se pudo bloquear orientación:', error);
-                orientationLocked = false;
-                orientationIndicator.textContent = 'Bloqueo FALLIDO. Gira tu dispositivo.';
-                orientationIndicator.classList.add('warning', 'active');
-                lockBtn.innerHTML = '🔓';
-                lockBtn.style.background = 'rgba(128,0,0,0.8)';
-                setTimeout(() => { orientationIndicator.classList.remove('active', 'warning'); }, 3000);
-            }
-            return false;
-        }
-
-        function unlockOrientation() {
-            try {
-                if (screen.orientation && screen.orientation.unlock) {
-                    screen.orientation.unlock();
-                    orientationLocked = false;
-                    lockBtn.innerHTML = '🔓';
-                    lockBtn.style.background = 'rgba(0,0,0,0.8)';
-                    orientationIndicator.textContent = 'Orientación liberada';
-                    orientationIndicator.classList.add('active');
-                    setTimeout(() => { orientationIndicator.classList.remove('active'); }, 2000);
-                }
-            } catch (error) {
-                console.warn('Error al liberar orientación:', error);
-            }
-        }
-        
-        document.addEventListener('visibilitychange', () => {
-            if (document.visibilityState === 'visible' && isInstalled) {
-                lockOrientation();
-            }
-        });
-
-        window.addEventListener('load', async () => {
-            if (isInstalled) {
-                await lockOrientation();
-            }
-        });
-
-        lockBtn.addEventListener('click', async () => {
-            if (orientationLocked) {
-                unlockOrientation();
-            } else {
-                await lockOrientation();
-            }
-        });
-
-        // ===== CONTROLES DE VIDEO =====
         loadBtn.addEventListener('click', () => fileInput.click());
-
-        centerBtn.addEventListener('click', () => {
-            videoContainer.style.left = '50%';
-            videoContainer.style.top = '50%';
-            videoContainer.style.transform = 'translate(-50%, -50%)';
-        });
 
         fileInput.addEventListener('change', (e) => {
             const file = e.target.files[0];
@@ -337,10 +186,9 @@
             }
         });
 
-        // ===== FUNCIONALIDAD DE ARRASTRAR Y REDIMENSIONAR =====
         let isDragging = false;
         let isPinching = false;
-        let startX, startY, initialLeft, initialTop, initialDistance, initialWidth, initialHeight;
+        let startX, startY, initialLeft, initialTop, initialDistance, initialWidth;
 
         function getDistance(touches) {
             const dx = touches[0].clientX - touches[1].clientX;
@@ -348,142 +196,103 @@
             return Math.sqrt(dx * dx + dy * dy);
         }
 
-        function constrainToScreen(x, y, width, height) {
-            const maxX = window.innerWidth - width;
-            const maxY = window.innerHeight - height;
-            return {
-                x: Math.max(0, Math.min(maxX, x)),
-                y: Math.max(0, Math.min(maxY, y))
-            };
-        }
-
         function setPosition(x, y) {
-            videoContainer.style.left = x + 'px';
-            videoContainer.style.top = y + 'px';
+            const rect = videoContainer.getBoundingClientRect();
+            const maxX = window.innerWidth - rect.width;
+            const maxY = window.innerHeight - rect.height;
+            videoContainer.style.left = `${Math.max(0, Math.min(maxX, x))}px`;
+            videoContainer.style.top = `${Math.max(0, Math.min(maxY, y))}px`;
             videoContainer.style.transform = 'none';
         }
+        
+        function onGestureStart() {
+            // Hacemos que el video ignore los toques para que el contenedor los gestione
+            videoPlayer.style.pointerEvents = 'none';
+        }
 
-        function handleDragStart(e) {
-            isDragging = true;
+        function onGestureEnd() {
+            isDragging = false;
             isPinching = false;
-            const touch = e.touches ? e.touches[0] : e;
-            startX = touch.clientX;
-            startY = touch.clientY;
+            // Devolvemos al video la capacidad de recibir toques
+            videoPlayer.style.pointerEvents = 'auto';
+            document.body.style.cursor = '';
+            videoContainer.style.cursor = 'move';
+        }
+
+        videoContainer.addEventListener('mousedown', (e) => {
+            // No iniciar si se pulsa un botón de control
+            if (e.target.classList.contains('control-btn')) return;
+            e.preventDefault();
+            isDragging = true;
+            startX = e.clientX;
+            startY = e.clientY;
             const rect = videoContainer.getBoundingClientRect();
             initialLeft = rect.left;
             initialTop = rect.top;
-        }
-
-        function handlePinchStart(e) {
-            isDragging = false;
-            isPinching = true;
-            initialDistance = getDistance(e.touches);
-            const rect = videoContainer.getBoundingClientRect();
-            initialWidth = rect.width;
-            initialHeight = rect.height;
-        }
-        
-        // Eventos de arrastre para móvil (táctil)
-        videoContainer.addEventListener('touchstart', (e) => {
-            if (e.target === videoPlayer) return; // FIX: Permite usar controles del video
-
-            if (e.touches.length === 1) {
-                e.preventDefault();
-                handleDragStart(e);
-            } else if (e.touches.length === 2) {
-                e.preventDefault();
-                handlePinchStart(e);
-            }
-        }, { passive: false });
-
-        document.addEventListener('touchmove', (e) => {
-            if (isDragging && e.touches.length === 1) {
-                e.preventDefault();
-                const deltaX = e.touches[0].clientX - startX;
-                const deltaY = e.touches[0].clientY - startY;
-                const newX = initialLeft + deltaX;
-                const newY = initialTop + deltaY;
-                const rect = videoContainer.getBoundingClientRect();
-                const constrained = constrainToScreen(newX, newY, rect.width, rect.height);
-                setPosition(constrained.x, constrained.y);
-            } else if (isPinching && e.touches.length === 2) {
-                e.preventDefault();
-                const currentDistance = getDistance(e.touches);
-                const scale = currentDistance / initialDistance;
-                const newWidth = Math.max(200, Math.min(window.innerWidth * 0.95, initialWidth * scale));
-                const newHeight = Math.max(150, Math.min(window.innerHeight * 0.95, initialHeight * scale));
-                videoContainer.style.width = newWidth + 'px';
-                videoContainer.style.height = newHeight + 'px';
-
-                const rect = videoContainer.getBoundingClientRect();
-                const constrained = constrainToScreen(rect.left, rect.top, newWidth, newHeight);
-                setPosition(constrained.x, constrained.y);
-            }
-        }, { passive: false });
-
-        document.addEventListener('touchend', (e) => {
-            if (e.touches.length < 2) isPinching = false;
-            if (e.touches.length < 1) isDragging = false;
-        });
-
-        // Eventos de arrastre para PC (ratón)
-        videoContainer.addEventListener('mousedown', (e) => {
-            if (e.target === videoPlayer) return; // FIX: Permite usar controles del video
-            e.preventDefault();
-            handleDragStart(e);
+            onGestureStart();
             document.body.style.cursor = 'grabbing';
             videoContainer.style.cursor = 'grabbing';
         });
 
+        videoContainer.addEventListener('touchstart', (e) => {
+            if (e.touches.length === 1) {
+                isDragging = true;
+                const touch = e.touches[0];
+                startX = touch.clientX;
+                startY = touch.clientY;
+                const rect = videoContainer.getBoundingClientRect();
+                initialLeft = rect.left;
+                initialTop = rect.top;
+                onGestureStart();
+            } else if (e.touches.length === 2) {
+                isPinching = true;
+                initialDistance = getDistance(e.touches);
+                initialWidth = videoContainer.getBoundingClientRect().width;
+                onGestureStart();
+            }
+        }, { passive: false });
+
+
         document.addEventListener('mousemove', (e) => {
             if (!isDragging) return;
+            e.preventDefault();
             const deltaX = e.clientX - startX;
             const deltaY = e.clientY - startY;
-            const newX = initialLeft + deltaX;
-            const newY = initialTop + deltaY;
-            const rect = videoContainer.getBoundingClientRect();
-            const constrained = constrainToScreen(newX, newY, rect.width, rect.height);
-            setPosition(constrained.x, constrained.y);
-        });
-        
-        document.addEventListener('mouseup', () => {
-            if (isDragging) {
-                isDragging = false;
-                document.body.style.cursor = '';
-                videoContainer.style.cursor = 'move';
-            }
+            setPosition(initialLeft + deltaX, initialTop + deltaY);
         });
 
-        // Atajos de teclado
-        if (!isMobile) {
-            document.addEventListener('keydown', (e) => {
-                switch(e.key.toLowerCase()) {
-                    case ' ': e.preventDefault(); videoPlayer.paused ? videoPlayer.play() : videoPlayer.pause(); break;
-                    case 'c': e.preventDefault(); centerBtn.click(); break;
-                    case 'o': e.preventDefault(); loadBtn.click(); break;
-                    case 'l': e.preventDefault(); lockBtn.click(); break;
-                }
-            });
-        }
-        
-        // Limpieza al salir
+        document.addEventListener('touchmove', (e) => {
+            e.preventDefault();
+            if (isDragging && e.touches.length === 1) {
+                const touch = e.touches[0];
+                const deltaX = touch.clientX - startX;
+                const deltaY = touch.clientY - startY;
+                setPosition(initialLeft + deltaX, initialTop + deltaY);
+            } else if (isPinching && e.touches.length === 2) {
+                const currentDistance = getDistance(e.touches);
+                const scale = currentDistance / initialDistance;
+                const newWidth = Math.max(200, Math.min(window.innerWidth * 0.95, initialWidth * scale));
+                videoContainer.style.width = newWidth + 'px';
+                // La altura se ajusta automáticamente por el aspect-ratio del vídeo, pero podemos forzarla
+                videoContainer.style.height = 'auto';
+            }
+        }, { passive: false });
+
+        document.addEventListener('mouseup', onGestureEnd);
+        document.addEventListener('touchend', onGestureEnd);
+
+
         window.addEventListener('beforeunload', () => {
-            try {
-                if (screen.orientation && screen.orientation.unlock) {
-                    screen.orientation.unlock();
-                }
-            } catch (error) {}
             if (videoPlayer.src && videoPlayer.src.startsWith('blob:')) {
                 URL.revokeObjectURL(videoPlayer.src);
             }
         });
 
-        // Service Worker para PWA (requiere archivo sw.js)
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
                 navigator.serviceWorker.register('sw.js')
-                    .then(registration => console.log('Service Worker registrado con éxito:', registration))
-                    .catch(error => console.log('Error registrando Service Worker:', error));
+                    .then(reg => console.log('Service Worker Registrado'))
+                    .catch(err => console.log('Error registrando Service Worker:', err));
             });
         }
     </script>
