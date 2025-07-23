@@ -26,93 +26,61 @@
             width: 100%;
             height: 100%;
             position: fixed;
-            touch-action: manipulation;
-            -webkit-user-select: none;
-            -moz-user-select: none;
-            -ms-user-select: none;
-            user-select: none;
+            touch-action: none;
         }
         .install-banner {
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
+            position: fixed; top: 0; left: 0; right: 0;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            padding: 12px 20px;
-            text-align: center;
-            font-size: 14px;
-            z-index: 2000;
+            color: white; padding: 12px 20px; text-align: center;
+            font-size: 14px; z-index: 2000;
             transform: translateY(-100%);
             transition: transform 0.3s ease;
         }
         .install-banner.show { transform: translateY(0); }
         .install-banner button {
-            background: rgba(255,255,255,0.2);
-            border: 1px solid rgba(255,255,255,0.3);
-            color: white;
-            padding: 6px 12px;
-            border-radius: 20px;
-            margin: 0 5px;
-            cursor: pointer;
-            font-size: 12px;
+            background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.3);
+            color: white; padding: 6px 12px; border-radius: 20px;
+            margin: 0 5px; cursor: pointer; font-size: 12px;
         }
         .video-container {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            background: #000;
-            border-radius: 8px;
-            overflow: hidden;
+            position: absolute; top: 50%; left: 50%;
+            transform: translate(-50%, -50%); /* Posición inicial centrada */
+            background: #000; border-radius: 8px; overflow: hidden;
             box-shadow: 0 4px 20px rgba(0,0,0,0.5);
-            touch-action: none;
-            cursor: move;
             z-index: 10;
-            width: 60vw;
-            aspect-ratio: 16 / 9;
-            min-width: 280px;
-            will-change: transform, width, height;
+            width: 60vw; aspect-ratio: 16 / 9; min-width: 280px;
+            will-change: transform, width;
+            /* El contenedor ignora toques para pasarlos al vídeo, a menos que se active el gesto */
+            pointer-events: none;
         }
+        /* El vídeo SÍ responde a toques, para poder usar sus controles */
         video {
-            width: 100%;
-            height: 100%;
-            display: block;
+            width: 100%; height: 100%; display: block;
             object-fit: contain;
+            pointer-events: auto;
         }
         .controls {
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            display: flex;
-            z-index: 1000;
+            position: fixed; top: 20px; right: 20px;
+            display: flex; z-index: 1000;
         }
         .control-btn {
-            width: 45px;
-            height: 45px;
-            border: none;
-            border-radius: 50%;
-            background: rgba(0,0,0,0.7);
-            color: white;
-            font-size: 22px;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
+            width: 45px; height: 45px; border: none;
+            border-radius: 50%; background: rgba(0,0,0,0.7);
+            color: white; font-size: 22px; cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
             transition: all 0.2s ease;
-            touch-action: manipulation;
             border: 1.5px solid rgba(255,255,255,0.15);
+            pointer-events: auto; /* El botón siempre debe ser clickeable */
         }
         .control-btn:active {
-            background: rgba(0,0,0,0.9);
-            transform: scale(1.1);
+            background: rgba(0,0,0,0.9); transform: scale(1.1);
         }
         #fileInput { display: none; }
     </style>
 </head>
 <body>
     <div class="install-banner" id="installBanner">
-        V5: Instala esta app para una mejor experiencia.
+        V7: Instala esta app para una mejor experiencia.
         <button id="installBtn">Instalar</button>
         <button id="dismissBtn">Cerrar</button>
     </div>
@@ -165,91 +133,95 @@
             }
         });
 
-        // --- Drag and Pinch Logic (Rewritten) ---
-        let state = {
-            isInteracting: false,
-            isDragging: false,
-            isPinching: false,
-            startX: 0,
-            startY: 0,
-            initialLeft: 0,
-            initialTop: 0,
-            initialDist: 0,
-            initialWidth: 0,
-        };
+        // --- Final Pinch-to-Move/Scale Logic (V7) ---
+        let initial = { dist: 0, midX: 0, midY: 0 };
+        let transform = { x: 0, y: 0, scale: 1 };
+        let activeGesture = false;
 
-        function setPosition(x, y) {
-            const rect = videoContainer.getBoundingClientRect();
-            const maxX = window.innerWidth - rect.width;
-            const maxY = window.innerHeight - rect.height;
-            videoContainer.style.left = `${Math.max(0, Math.min(maxX, x))}px`;
-            videoContainer.style.top = `${Math.max(0, Math.min(maxY, y))}px`;
-            videoContainer.style.transform = 'none';
+        function getMidpoint(p1, p2) {
+            return { x: (p1.clientX + p2.clientX) / 2, y: (p1.clientY + p2.clientY) / 2 };
         }
 
-        function onPointerDown(e) {
-            state.isInteracting = true;
-            // Solo prevenir el comportamiento por defecto si el toque NO es en el vídeo
-            if (e.target !== videoPlayer) {
-                 e.preventDefault();
-            }
+        function getDistance(p1, p2) {
+            return Math.hypot(p1.clientX - p2.clientX, p1.clientY - p2.clientY);
+        }
 
-            if (e.touches && e.touches.length === 2) {
-                // Pinch Start
-                state.isPinching = true;
-                state.isDragging = false;
-                state.initialDist = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
-                state.initialWidth = videoContainer.offsetWidth;
-            } else {
-                // Drag Start
-                const point = e.touches ? e.touches[0] : e;
-                state.isDragging = true;
-                state.isPinching = false;
-                state.startX = point.clientX;
-                state.startY = point.clientY;
+        function applyTransform() {
+            const newWidth = videoContainer.dataset.initialWidth * transform.scale;
+            const newHeight = newWidth / (16 / 9);
+
+            const minX = (newWidth / 2) - (window.innerWidth / 2);
+            const maxX = (window.innerWidth / 2) - (newWidth / 2);
+            const minY = (newHeight / 2) - (window.innerHeight / 2);
+            const maxY = (window.innerHeight / 2) - (newHeight / 2);
+
+            transform.x = Math.max(minX, Math.min(transform.x, maxX));
+            transform.y = Math.max(minY, Math.min(transform.y, maxY));
+            
+            videoContainer.style.width = `${newWidth}px`;
+            videoContainer.style.transform = `translate(${transform.x}px, ${transform.y}px) scale(${transform.scale})`;
+        }
+
+        function onTouchStart(e) {
+            // SOLO activamos el gesto si hay DOS dedos en la pantalla
+            if (e.touches.length === 2) {
+                e.preventDefault();
+                activeGesture = true;
+                
+                // Habilitamos los toques en el contenedor para poder arrastrarlo
+                videoContainer.style.pointerEvents = 'auto';
+
                 const rect = videoContainer.getBoundingClientRect();
-                state.initialLeft = rect.left;
-                state.initialTop = rect.top;
+                const style = window.getComputedStyle(videoContainer);
+                const matrix = new DOMMatrixReadOnly(style.transform);
+
+                transform.x = matrix.m41;
+                transform.y = matrix.m42;
+                transform.scale = matrix.a;
+
+                // Guardamos el tamaño inicial sin escalar para cálculos
+                videoContainer.dataset.initialWidth = rect.width / transform.scale;
+                
+                initial.dist = getDistance(e.touches[0], e.touches[1]);
+                initial.midX = getMidpoint(e.touches[0], e.touches[1]).x;
+                initial.midY = getMidpoint(e.touches[0], e.touches[1]).y;
             }
         }
 
-        function onPointerMove(e) {
-            if (!state.isInteracting) return;
-             e.preventDefault();
+        function onTouchMove(e) {
+            if (!activeGesture || e.touches.length !== 2) return;
+            e.preventDefault();
 
-            if (state.isPinching && e.touches && e.touches.length === 2) {
-                // Pinch Move
-                const currentDist = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
-                const scale = currentDist / state.initialDist;
-                const newWidth = Math.max(280, Math.min(window.innerWidth * 0.95, state.initialWidth * scale));
-                videoContainer.style.width = `${newWidth}px`;
-                const rect = videoContainer.getBoundingClientRect();
-                setPosition(rect.left, rect.top);
+            const currentDist = getDistance(e.touches[0], e.touches[1]);
+            const currentMid = getMidpoint(e.touches[0], e.touches[1]);
 
-            } else if (state.isDragging) {
-                // Drag Move
-                const point = e.touches ? e.touches[0] : e;
-                const deltaX = point.clientX - state.startX;
-                const deltaY = point.clientY - state.startY;
-                setPosition(state.initialLeft + deltaX, state.initialTop + deltaY);
+            const scaleChange = currentDist / initial.dist;
+            transform.scale *= scaleChange;
+            
+            transform.x += currentMid.x - initial.midX;
+            transform.y += currentMid.y - initial.midY;
+            
+            applyTransform();
+            
+            // Actualizamos los valores iniciales para el siguiente movimiento
+            initial.dist = currentDist;
+            initial.midX = currentMid.x;
+            initial.midY = currentMid.y;
+        }
+
+        function onTouchEnd(e) {
+            if (activeGesture) {
+                activeGesture = false;
+                // Devolvemos el contenedor a su estado normal para que los toques de 1 dedo vayan al vídeo
+                videoContainer.style.pointerEvents = 'none';
             }
         }
 
-        function onPointerUp(e) {
-            // Reset state
-            state.isInteracting = false;
-            state.isDragging = false;
-            state.isPinching = false;
-        }
+        // Asignamos los eventos al documento entero para capturar los toques en cualquier lugar
+        document.addEventListener('touchstart', onTouchStart, { passive: false });
+        document.addEventListener('touchmove', onTouchMove, { passive: false });
+        document.addEventListener('touchend', onTouchEnd);
 
-        // Event Listeners
-        videoContainer.addEventListener('mousedown', onPointerDown);
-        document.addEventListener('mousemove', onPointerMove);
-        document.addEventListener('mouseup', onPointerUp);
-
-        videoContainer.addEventListener('touchstart', onPointerDown, { passive: false });
-        document.addEventListener('touchmove', onPointerMove, { passive: false });
-        document.addEventListener('touchend', onPointerUp);
 
         // --- Service Worker ---
         window.addEventListener('load', () => {
