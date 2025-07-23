@@ -71,9 +71,9 @@
             cursor: move;
             z-index: 10;
             width: 60vw;
-            height: 40vh;
+            height: auto;
             min-width: 280px;
-            min-height: 200px;
+            min-height: 157px; /* Proporción 16:9 de 280px */
             will-change: transform, width, height;
         }
         @media screen and (min-width: 1025px) {
@@ -88,7 +88,6 @@
             height: 100%;
             display: block;
             object-fit: contain;
-            /* Por defecto, el vídeo responde a los toques */
             pointer-events: auto;
         }
         .controls {
@@ -163,17 +162,12 @@
             if (deferredPrompt) {
                 deferredPrompt.prompt();
                 const { outcome } = await deferredPrompt.userChoice;
-                if (outcome === 'accepted') {
-                    installBanner.classList.remove('show');
-                }
+                if (outcome === 'accepted') { installBanner.classList.remove('show'); }
                 deferredPrompt = null;
             }
         });
 
-        dismissBtn.addEventListener('click', () => {
-            installBanner.classList.remove('show');
-        });
-
+        dismissBtn.addEventListener('click', () => { installBanner.classList.remove('show'); });
         loadBtn.addEventListener('click', () => fileInput.click());
 
         fileInput.addEventListener('change', (e) => {
@@ -188,7 +182,7 @@
 
         let isDragging = false;
         let isPinching = false;
-        let startX, startY, initialLeft, initialTop, initialDistance, initialWidth;
+        let startX, startY, initialLeft, initialTop, initialDistance, initialWidth, initialHeight;
 
         function getDistance(touches) {
             const dx = touches[0].clientX - touches[1].clientX;
@@ -206,49 +200,51 @@
         }
         
         function onGestureStart() {
-            // Hacemos que el video ignore los toques para que el contenedor los gestione
             videoPlayer.style.pointerEvents = 'none';
         }
 
         function onGestureEnd() {
             isDragging = false;
             isPinching = false;
-            // Devolvemos al video la capacidad de recibir toques
             videoPlayer.style.pointerEvents = 'auto';
             document.body.style.cursor = '';
             videoContainer.style.cursor = 'move';
         }
 
-        videoContainer.addEventListener('mousedown', (e) => {
-            // No iniciar si se pulsa un botón de control
-            if (e.target.classList.contains('control-btn')) return;
-            e.preventDefault();
+        function startDrag(e) {
             isDragging = true;
-            startX = e.clientX;
-            startY = e.clientY;
+            const point = e.touches ? e.touches[0] : e;
+            startX = point.clientX;
+            startY = point.clientY;
             const rect = videoContainer.getBoundingClientRect();
             initialLeft = rect.left;
             initialTop = rect.top;
             onGestureStart();
+        }
+
+        function startPinch(e) {
+            isPinching = true;
+            initialDistance = getDistance(e.touches);
+            const rect = videoContainer.getBoundingClientRect();
+            initialWidth = rect.width;
+            initialHeight = rect.height;
+            onGestureStart();
+        }
+
+        videoContainer.addEventListener('mousedown', (e) => {
+            e.preventDefault();
+            startDrag(e);
             document.body.style.cursor = 'grabbing';
             videoContainer.style.cursor = 'grabbing';
         });
 
         videoContainer.addEventListener('touchstart', (e) => {
             if (e.touches.length === 1) {
-                isDragging = true;
-                const touch = e.touches[0];
-                startX = touch.clientX;
-                startY = touch.clientY;
-                const rect = videoContainer.getBoundingClientRect();
-                initialLeft = rect.left;
-                initialTop = rect.top;
-                onGestureStart();
+                e.preventDefault();
+                startDrag(e);
             } else if (e.touches.length === 2) {
-                isPinching = true;
-                initialDistance = getDistance(e.touches);
-                initialWidth = videoContainer.getBoundingClientRect().width;
-                onGestureStart();
+                e.preventDefault();
+                startPinch(e);
             }
         }, { passive: false });
 
@@ -268,19 +264,26 @@
                 const deltaX = touch.clientX - startX;
                 const deltaY = touch.clientY - startY;
                 setPosition(initialLeft + deltaX, initialTop + deltaY);
+
             } else if (isPinching && e.touches.length === 2) {
                 const currentDistance = getDistance(e.touches);
                 const scale = currentDistance / initialDistance;
-                const newWidth = Math.max(200, Math.min(window.innerWidth * 0.95, initialWidth * scale));
-                videoContainer.style.width = newWidth + 'px';
-                // La altura se ajusta automáticamente por el aspect-ratio del vídeo, pero podemos forzarla
-                videoContainer.style.height = 'auto';
+
+                // Calcula y aplica nuevo tamaño
+                const newWidth = Math.max(280, Math.min(window.innerWidth * 0.95, initialWidth * scale));
+                const newHeight = Math.max(157, Math.min(window.innerHeight * 0.95, initialHeight * scale));
+                videoContainer.style.width = `${newWidth}px`;
+                videoContainer.style.height = `${newHeight}px`;
+
+                // **LA CORRECCIÓN CLAVE ESTÁ AQUÍ**
+                // Re-valida la posición actual con el nuevo tamaño para que no se quede atascado
+                const currentRect = videoContainer.getBoundingClientRect();
+                setPosition(currentRect.left, currentRect.top);
             }
         }, { passive: false });
 
         document.addEventListener('mouseup', onGestureEnd);
         document.addEventListener('touchend', onGestureEnd);
-
 
         window.addEventListener('beforeunload', () => {
             if (videoPlayer.src && videoPlayer.src.startsWith('blob:')) {
