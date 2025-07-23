@@ -74,27 +74,17 @@
             min-width: 280px;
             will-change: transform, width, height;
         }
-        @media screen and (min-width: 1025px) {
-            .video-container {
-                resize: both;
-                max-width: 90vw;
-                max-height: 90vh;
-            }
-        }
         video {
             width: 100%;
             height: 100%;
             display: block;
             object-fit: contain;
-            pointer-events: auto;
         }
         .controls {
             position: fixed;
             top: 20px;
             right: 20px;
             display: flex;
-            flex-direction: column;
-            gap: 10px;
             z-index: 1000;
         }
         .control-btn {
@@ -122,7 +112,7 @@
 </head>
 <body>
     <div class="install-banner" id="installBanner">
-        V4: Instala esta app para una mejor experiencia.
+        V5: Instala esta app para una mejor experiencia.
         <button id="installBtn">Instalar</button>
         <button id="dismissBtn">Cerrar</button>
     </div>
@@ -146,47 +136,47 @@
         const installBtn = document.getElementById('installBtn');
         const dismissBtn = document.getElementById('dismissBtn');
 
+        // --- PWA Installation Logic ---
         let deferredPrompt;
         window.addEventListener('beforeinstallprompt', (e) => {
             e.preventDefault();
             deferredPrompt = e;
-            const isInstalled = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
-            if (!isInstalled) {
+            if (!window.matchMedia('(display-mode: standalone)').matches) {
                 installBanner.classList.add('show');
             }
         });
-
         installBtn.addEventListener('click', async () => {
             if (deferredPrompt) {
                 deferredPrompt.prompt();
-                const { outcome } = await deferredPrompt.userChoice;
-                if (outcome === 'accepted') { installBanner.classList.remove('show'); }
+                await deferredPrompt.userChoice;
                 deferredPrompt = null;
+                installBanner.classList.remove('show');
             }
         });
+        dismissBtn.addEventListener('click', () => installBanner.classList.remove('show'));
 
-        dismissBtn.addEventListener('click', () => { installBanner.classList.remove('show'); });
+        // --- Video File Logic ---
         loadBtn.addEventListener('click', () => fileInput.click());
-
         fileInput.addEventListener('change', (e) => {
             const file = e.target.files[0];
             if (file) {
-                if (videoPlayer.src && videoPlayer.src.startsWith('blob:')) {
-                    URL.revokeObjectURL(videoPlayer.src);
-                }
+                if (videoPlayer.src) URL.revokeObjectURL(videoPlayer.src);
                 videoPlayer.src = URL.createObjectURL(file);
             }
         });
 
-        let isDragging = false;
-        let isPinching = false;
-        let startX, startY, initialLeft, initialTop, initialDistance, initialWidth;
-
-        function getDistance(touches) {
-            const dx = touches[0].clientX - touches[1].clientX;
-            const dy = touches[0].clientY - touches[1].clientY;
-            return Math.sqrt(dx * dx + dy * dy);
-        }
+        // --- Drag and Pinch Logic (Rewritten) ---
+        let state = {
+            isInteracting: false,
+            isDragging: false,
+            isPinching: false,
+            startX: 0,
+            startY: 0,
+            initialLeft: 0,
+            initialTop: 0,
+            initialDist: 0,
+            initialWidth: 0,
+        };
 
         function setPosition(x, y) {
             const rect = videoContainer.getBoundingClientRect();
@@ -196,105 +186,79 @@
             videoContainer.style.top = `${Math.max(0, Math.min(maxY, y))}px`;
             videoContainer.style.transform = 'none';
         }
-        
-        // La lógica de eventos de movimiento ha sido reescrita para ser más robusta.
-        function onGestureEnd() {
-            isDragging = false;
-            isPinching = false;
-            // Siempre nos aseguramos de que el vídeo sea interactivo al soltar.
-            videoPlayer.style.pointerEvents = 'auto';
-            document.body.style.cursor = '';
-            videoContainer.style.cursor = 'move';
-        }
 
-        function handleMouseDown(e) {
-            // Si el objetivo del clic es el vídeo en sí, no hacemos NADA.
-            // Esto permite que los controles nativos (play, pausa, barra) funcionen.
-            if (e.target.isEqualNode(videoPlayer)) {
-                return;
+        function onPointerDown(e) {
+            state.isInteracting = true;
+            // Solo prevenir el comportamiento por defecto si el toque NO es en el vídeo
+            if (e.target !== videoPlayer) {
+                 e.preventDefault();
             }
-            // Si el clic es en cualquier otro lugar del contenedor, iniciamos el arrastre.
-            e.preventDefault();
-            isDragging = true;
-            const point = e.touches ? e.touches[0] : e;
-            startX = point.clientX;
-            startY = point.clientY;
-            const rect = videoContainer.getBoundingClientRect();
-            initialLeft = rect.left;
-            initialTop = rect.top;
-            videoPlayer.style.pointerEvents = 'none'; // Desactivamos el vídeo SÓLO durante el arrastre.
-        }
 
-        function handleTouchStart(e) {
-            // La misma lógica que en mousedown, pero para toques.
-            if (e.target.isEqualNode(videoPlayer)) {
-                return;
-            }
-            if (e.touches.length === 1) {
-                e.preventDefault();
-                isDragging = true;
-                const touch = e.touches[0];
-                startX = touch.clientX;
-                startY = touch.clientY;
+            if (e.touches && e.touches.length === 2) {
+                // Pinch Start
+                state.isPinching = true;
+                state.isDragging = false;
+                state.initialDist = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
+                state.initialWidth = videoContainer.offsetWidth;
+            } else {
+                // Drag Start
+                const point = e.touches ? e.touches[0] : e;
+                state.isDragging = true;
+                state.isPinching = false;
+                state.startX = point.clientX;
+                state.startY = point.clientY;
                 const rect = videoContainer.getBoundingClientRect();
-                initialLeft = rect.left;
-                initialTop = rect.top;
-                videoPlayer.style.pointerEvents = 'none';
-            } else if (e.touches.length === 2) {
-                e.preventDefault();
-                isPinching = true;
-                initialDistance = getDistance(e.touches);
-                initialWidth = videoContainer.getBoundingClientRect().width;
-                videoPlayer.style.pointerEvents = 'none';
+                state.initialLeft = rect.left;
+                state.initialTop = rect.top;
             }
         }
-        
-        videoContainer.addEventListener('mousedown', handleMouseDown);
-        videoContainer.addEventListener('touchstart', handleTouchStart, { passive: false });
 
-        document.addEventListener('mousemove', (e) => {
-            if (!isDragging) return;
-            e.preventDefault();
-            const deltaX = e.clientX - startX;
-            const deltaY = e.clientY - startY;
-            setPosition(initialLeft + deltaX, initialTop + deltaY);
-        });
+        function onPointerMove(e) {
+            if (!state.isInteracting) return;
+             e.preventDefault();
 
-        document.addEventListener('touchmove', (e) => {
-            if (!isDragging && !isPinching) return;
-            e.preventDefault();
-
-            if (isDragging && e.touches.length === 1) {
-                const touch = e.touches[0];
-                const deltaX = touch.clientX - startX;
-                const deltaY = touch.clientY - startY;
-                setPosition(initialLeft + deltaX, initialTop + deltaY);
-            } else if (isPinching && e.touches.length === 2) {
-                const currentDistance = getDistance(e.touches);
-                const scale = currentDistance / initialDistance;
-                const newWidth = Math.max(280, Math.min(window.innerWidth * 0.95, initialWidth * scale));
+            if (state.isPinching && e.touches && e.touches.length === 2) {
+                // Pinch Move
+                const currentDist = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
+                const scale = currentDist / state.initialDist;
+                const newWidth = Math.max(280, Math.min(window.innerWidth * 0.95, state.initialWidth * scale));
                 videoContainer.style.width = `${newWidth}px`;
-                const currentRect = videoContainer.getBoundingClientRect();
-                setPosition(currentRect.left, currentRect.top);
+                const rect = videoContainer.getBoundingClientRect();
+                setPosition(rect.left, rect.top);
+
+            } else if (state.isDragging) {
+                // Drag Move
+                const point = e.touches ? e.touches[0] : e;
+                const deltaX = point.clientX - state.startX;
+                const deltaY = point.clientY - state.startY;
+                setPosition(state.initialLeft + deltaX, state.initialTop + deltaY);
             }
-        }, { passive: false });
+        }
 
-        document.addEventListener('mouseup', onGestureEnd);
-        document.addEventListener('touchend', onGestureEnd);
+        function onPointerUp(e) {
+            // Reset state
+            state.isInteracting = false;
+            state.isDragging = false;
+            state.isPinching = false;
+        }
 
-        window.addEventListener('beforeunload', () => {
-            if (videoPlayer.src && videoPlayer.src.startsWith('blob:')) {
-                URL.revokeObjectURL(videoPlayer.src);
+        // Event Listeners
+        videoContainer.addEventListener('mousedown', onPointerDown);
+        document.addEventListener('mousemove', onPointerMove);
+        document.addEventListener('mouseup', onPointerUp);
+
+        videoContainer.addEventListener('touchstart', onPointerDown, { passive: false });
+        document.addEventListener('touchmove', onPointerMove, { passive: false });
+        document.addEventListener('touchend', onPointerUp);
+
+        // --- Service Worker ---
+        window.addEventListener('load', () => {
+            if ('serviceWorker' in navigator) {
+                navigator.serviceWorker.register('sw.js')
+                    .then(() => console.log('Service Worker Registrado'))
+                    .catch(err => console.error('Error registrando SW:', err));
             }
         });
-
-        if ('serviceWorker' in navigator) {
-            window.addEventListener('load', () => {
-                navigator.serviceWorker.register('sw.js')
-                    .then(reg => console.log('Service Worker Registrado'))
-                    .catch(err => console.log('Error registrando Service Worker:', err));
-            });
-        }
     </script>
 </body>
 </html>
