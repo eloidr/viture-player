@@ -1,0 +1,19 @@
+// Contenido para manifest.json
+{
+  "name": "VITURE Video Player",
+  "short_name": "ViturePlayer",
+  "description": "Reproductor de video optimizado para gafas Viture",
+  "start_url": ".",
+  "display": "fullscreen",
+  "orientation": "landscape",
+  "theme_color": "#000000",
+  "background_color": "#000000",
+  "icons": [
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ],
+  "categories": ["utilities", "video"]
+}
