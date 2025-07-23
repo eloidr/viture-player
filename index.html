@@ -57,7 +57,6 @@
             cursor: pointer;
             font-size: 12px;
         }
-        .install-banner button:hover { background: rgba(255,255,255,0.3); }
         .video-container {
             position: absolute;
             top: 50%;
@@ -71,7 +70,7 @@
             cursor: move;
             z-index: 10;
             width: 60vw;
-            aspect-ratio: 16 / 9; /* Mantiene la proporción automáticamente */
+            aspect-ratio: 16 / 9;
             min-width: 280px;
             will-change: transform, width, height;
         }
@@ -99,14 +98,13 @@
             z-index: 1000;
         }
         .control-btn {
-            /* Estilo de botón modificado */
             width: 45px;
             height: 45px;
             border: none;
             border-radius: 50%;
             background: rgba(0,0,0,0.7);
             color: white;
-            font-size: 22px; /* Tamaño del icono */
+            font-size: 22px;
             cursor: pointer;
             display: flex;
             align-items: center;
@@ -225,19 +223,26 @@
         function startPinch(e) {
             isPinching = true;
             initialDistance = getDistance(e.touches);
-            const rect = videoContainer.getBoundingClientRect();
-            initialWidth = rect.width;
+            initialWidth = videoContainer.getBoundingClientRect().width;
             onGestureStart();
         }
 
+        // *** LA CORRECCIÓN CLAVE ESTÁ AQUÍ ***
         videoContainer.addEventListener('mousedown', (e) => {
+            // Si el clic es en el propio vídeo, no hacemos nada para dejar que sus controles funcionen.
+            if (e.target === videoPlayer) {
+                return;
+            }
             e.preventDefault();
             startDrag(e);
             document.body.style.cursor = 'grabbing';
-            videoContainer.style.cursor = 'grabbing';
         });
 
         videoContainer.addEventListener('touchstart', (e) => {
+            // Si el toque es en el propio vídeo, no hacemos nada.
+            if (e.target === videoPlayer) {
+                return;
+            }
             if (e.touches.length === 1) {
                 e.preventDefault();
                 startDrag(e);
@@ -257,7 +262,9 @@
         });
 
         document.addEventListener('touchmove', (e) => {
+            if (!isDragging && !isPinching) return;
             e.preventDefault();
+
             if (isDragging && e.touches.length === 1) {
                 const touch = e.touches[0];
                 const deltaX = touch.clientX - startX;
@@ -270,8 +277,7 @@
 
                 const newWidth = Math.max(280, Math.min(window.innerWidth * 0.95, initialWidth * scale));
                 videoContainer.style.width = `${newWidth}px`;
-                // La altura ahora se ajusta sola gracias a 'aspect-ratio' en el CSS.
-
+                
                 const currentRect = videoContainer.getBoundingClientRect();
                 setPosition(currentRect.left, currentRect.top);
             }
