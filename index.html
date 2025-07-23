@@ -71,9 +71,8 @@
             cursor: move;
             z-index: 10;
             width: 60vw;
-            height: auto;
+            aspect-ratio: 16 / 9; /* Mantiene la proporción automáticamente */
             min-width: 280px;
-            min-height: 157px; /* Proporción 16:9 de 280px */
             will-change: transform, width, height;
         }
         @media screen and (min-width: 1025px) {
@@ -100,20 +99,21 @@
             z-index: 1000;
         }
         .control-btn {
-            width: 50px;
-            height: 50px;
+            /* Estilo de botón modificado */
+            width: 45px;
+            height: 45px;
             border: none;
             border-radius: 50%;
-            background: rgba(0,0,0,0.8);
+            background: rgba(0,0,0,0.7);
             color: white;
-            font-size: 20px;
+            font-size: 22px; /* Tamaño del icono */
             cursor: pointer;
             display: flex;
             align-items: center;
             justify-content: center;
             transition: all 0.2s ease;
             touch-action: manipulation;
-            border: 2px solid rgba(255,255,255,0.2);
+            border: 1.5px solid rgba(255,255,255,0.15);
         }
         .control-btn:active {
             background: rgba(0,0,0,0.9);
@@ -136,7 +136,7 @@
     </div>
 
     <div class="controls">
-        <button class="control-btn" id="loadBtn" title="Cargar video">📂</button>
+        <button class="control-btn" id="loadBtn" title="Cargar video">☰</button>
     </div>
 
     <script>
@@ -182,7 +182,7 @@
 
         let isDragging = false;
         let isPinching = false;
-        let startX, startY, initialLeft, initialTop, initialDistance, initialWidth, initialHeight;
+        let startX, startY, initialLeft, initialTop, initialDistance, initialWidth;
 
         function getDistance(touches) {
             const dx = touches[0].clientX - touches[1].clientX;
@@ -227,7 +227,6 @@
             initialDistance = getDistance(e.touches);
             const rect = videoContainer.getBoundingClientRect();
             initialWidth = rect.width;
-            initialHeight = rect.height;
             onGestureStart();
         }
 
@@ -269,14 +268,10 @@
                 const currentDistance = getDistance(e.touches);
                 const scale = currentDistance / initialDistance;
 
-                // Calcula y aplica nuevo tamaño
                 const newWidth = Math.max(280, Math.min(window.innerWidth * 0.95, initialWidth * scale));
-                const newHeight = Math.max(157, Math.min(window.innerHeight * 0.95, initialHeight * scale));
                 videoContainer.style.width = `${newWidth}px`;
-                videoContainer.style.height = `${newHeight}px`;
+                // La altura ahora se ajusta sola gracias a 'aspect-ratio' en el CSS.
 
-                // **LA CORRECCIÓN CLAVE ESTÁ AQUÍ**
-                // Re-valida la posición actual con el nuevo tamaño para que no se quede atascado
                 const currentRect = videoContainer.getBoundingClientRect();
                 setPosition(currentRect.left, currentRect.top);
             }
