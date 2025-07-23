@@ -44,13 +44,14 @@
         }
         .video-container {
             position: absolute; top: 50%; left: 50%;
-            /* El transform se aplicará dinámicamente con JS */
             background: #000; border-radius: 8px; overflow: hidden;
             box-shadow: 0 4px 20px rgba(0,0,0,0.5);
             z-index: 10;
             width: 60vw; aspect-ratio: 16 / 9; min-width: 280px;
-            will-change: transform, width;
+            will-change: transform, opacity;
             transform-origin: center center;
+            /* Transición suave para la opacidad */
+            transition: opacity 0.2s ease;
         }
         video {
             width: 100%; height: 100%; display: block;
@@ -68,15 +69,12 @@
             transition: all 0.2s ease;
             border: 1.5px solid rgba(255,255,255,0.15);
         }
-        .control-btn:active {
-            background: rgba(0,0,0,0.9); transform: scale(1.1);
-        }
         #fileInput { display: none; }
     </style>
 </head>
 <body>
     <div class="install-banner" id="installBanner">
-        V8: Instala esta app para una mejor experiencia.
+        V9: Instala esta app para una mejor experiencia.
         <button id="installBtn">Instalar</button>
         <button id="dismissBtn">Cerrar</button>
     </div>
@@ -105,9 +103,7 @@
         window.addEventListener('beforeinstallprompt', (e) => {
             e.preventDefault();
             deferredPrompt = e;
-            if (!window.matchMedia('(display-mode: standalone)').matches) {
-                installBanner.classList.add('show');
-            }
+            if (!window.matchMedia('(display-mode: standalone)').matches) installBanner.classList.add('show');
         });
         installBtn.addEventListener('click', async () => {
             if (deferredPrompt) {
@@ -126,121 +122,117 @@
             if (file) {
                 if (videoPlayer.src) URL.revokeObjectURL(videoPlayer.src);
                 videoPlayer.src = URL.createObjectURL(file);
+                // Reset position on new video
+                videoContainer.style.transform = 'translate(-50%, -50%) scale(1)';
+                videoContainer.style.top = '50%';
+                videoContainer.style.left = '50%';
+                state.scale = 1;
             }
         });
 
-        // --- Separated Gesture Logic (V8) ---
+        // --- Final Gesture Logic (V9) ---
         let state = {
-            x: 0, y: 0, scale: 1,
-            initialDist: 0, initialMidX: 0, initialMidY: 0,
-            activeGesture: null,
-            lastTap: 0
+            scale: 1,
+            longPressTimer: null,
+            isDragging: false,
+            isPinching: false,
+            // Initial positions
+            initialX: 0, initialY: 0,
+            initialPinchDist: 0,
         };
+        
+        // Colocamos el reproductor en el centro al inicio
+        videoContainer.style.left = `${window.innerWidth / 2}px`;
+        videoContainer.style.top = `${window.innerHeight / 2}px`;
+        videoContainer.style.transform = 'translate(-50%, -50%) scale(1)';
 
-        // Valores iniciales al cargar la página
-        const rect = videoContainer.getBoundingClientRect();
-        state.x = rect.left + rect.width / 2 - window.innerWidth / 2;
-        state.y = rect.top + rect.height / 2 - window.innerHeight / 2;
-
-        function getMidpoint(p1, p2) {
-            return { x: (p1.clientX + p2.clientX) / 2, y: (p1.clientY + p2.clientY) / 2 };
-        }
 
         function getDistance(p1, p2) {
             return Math.hypot(p1.clientX - p2.clientX, p1.clientY - p2.clientY);
         }
 
-        function applyTransform() {
-            // Limitar la escala
-            state.scale = Math.max(0.5, Math.min(state.scale, 3));
-            
-            const currentWidth = videoContainer.offsetWidth;
-            const currentHeight = videoContainer.offsetHeight;
+        function onPointerDown(e) {
+            // Ignorar clics en los botones de control
+            if (e.target.closest('.controls')) return;
 
-            // Limitar la posición (los límites de los marcos)
-            const maxX = (window.innerWidth - currentWidth) / 2;
-            const minX = -maxX;
-            const maxY = (window.innerHeight - currentHeight) / 2;
-            const minY = -maxY;
+            // Lógica de Pulsación Larga para activar el modo mover
+            if (e.touches && e.touches.length === 1) {
+                state.longPressTimer = setTimeout(() => {
+                    // MODO MOVER ACTIVADO
+                    state.isDragging = true;
+                    // Feedback visual y táctil
+                    videoContainer.style.opacity = '0.7';
+                    if (navigator.vibrate) navigator.vibrate(50);
 
-            state.x = Math.max(minX, Math.min(state.x, maxX));
-            state.y = Math.max(minY, Math.min(state.y, maxY));
-            
-            videoContainer.style.transform = `translate(${state.x}px, ${state.y}px) scale(${state.scale})`;
-        }
+                    const point = e.touches[0];
+                    const rect = videoContainer.getBoundingClientRect();
+                    // Calculamos el offset del dedo respecto a la esquina superior izquierda del div
+                    state.initialX = point.clientX - rect.left;
+                    state.initialY = point.clientY - rect.top;
+                }, 500); // 500ms para activar
+            }
 
-        function onTouchStart(e) {
-            // Doble tap para recentrar
-            const now = Date.now();
-            if (now - state.lastTap < 300 && e.touches.length === 1) {
-                state.x = 0;
-                state.y = 0;
-                state.scale = 1;
-                videoContainer.style.transition = 'transform 0.3s ease';
-                applyTransform();
-                setTimeout(() => videoContainer.style.transition = '', 300);
+            // Lógica de Pellizco para hacer zoom
+            if (e.touches && e.touches.length === 2) {
+                clearTimeout(state.longPressTimer); // Cancelar el timer de pulsación larga si se usan dos dedos
                 e.preventDefault();
-                return;
+                state.isPinching = true;
+                state.initialPinchDist = getDistance(e.touches[0], e.touches[1]);
             }
-            state.lastTap = now;
-            
-            // Ignorar toques de 1 dedo para permitir controles del vídeo
-            if (e.touches.length !== 2) {
-                state.activeGesture = null;
-                return;
-            }
-
-            e.preventDefault();
-            videoContainer.style.transition = ''; // Quitar transición si la hubiera
-
-            state.activeGesture = 'pinch-pan';
-            state.initialDist = getDistance(e.touches[0], e.touches[1]);
-            const midpoint = getMidpoint(e.touches[0], e.touches[1]);
-            state.initialMidX = midpoint.x - state.x;
-            state.initialMidY = midpoint.y - state.y;
         }
 
-        function onTouchMove(e) {
-            if (state.activeGesture !== 'pinch-pan' || e.touches.length !== 2) return;
-            e.preventDefault();
-
-            const currentDist = getDistance(e.touches[0], e.touches[1]);
-            const midpoint = getMidpoint(e.touches[0], e.touches[1]);
-
-            // Determinar el gesto dominante
-            const distChange = Math.abs(currentDist - state.initialDist);
-            const posChange = getDistance({clientX: midpoint.x, clientY: midpoint.y}, {clientX: state.initialMidX + state.x, clientY: state.initialMidY + state.y});
-            
-            const zoomSensitivity = 1.0; // Ajustar si es necesario
-            const panSensitivity = 1.0;  // Ajustar si es necesario
-            
-            // Umbral para decidir si es zoom o pan
-            if (distChange > posChange + 5) {
-                // Es ZOOM
-                const scaleChange = currentDist / state.initialDist;
-                state.scale *= (1 + (scaleChange - 1) * zoomSensitivity);
-            } else {
-                // Es MOVER (PAN)
-                state.x = midpoint.x - state.initialMidX * panSensitivity;
-                state.y = midpoint.y - state.initialMidY * panSensitivity;
+        function onPointerMove(e) {
+            // Mover el reproductor si el modo arrastre está activado
+            if (state.isDragging && e.touches && e.touches.length === 1) {
+                e.preventDefault();
+                const point = e.touches[0];
+                const newX = point.clientX - state.initialX;
+                const newY = point.clientY - state.initialY;
+                videoContainer.style.left = `${newX}px`;
+                videoContainer.style.top = `${newY}px`;
+                // El transform solo se usa para centrar y escalar, no para posicionar mientras se arrastra
+                videoContainer.style.transform = `translate(0, 0) scale(${state.scale})`;
             }
 
-            applyTransform();
+            // Redimensionar el reproductor si el modo pellizco está activado
+            if (state.isPinching && e.touches && e.touches.length === 2) {
+                e.preventDefault();
+                const currentDist = getDistance(e.touches[0], e.touches[1]);
+                const scaleChange = currentDist / state.initialPinchDist;
 
-            // Actualizar el estado inicial para el siguiente frame
-            state.initialDist = currentDist;
-            state.initialMidX = midpoint.x - state.x;
-            state.initialMidY = midpoint.y - state.y;
+                state.scale *= scaleChange;
+                state.scale = Math.max(0.3, Math.min(state.scale, 4)); // Limitar zoom
+
+                // El transform se actualiza para reflejar la nueva escala
+                const rect = videoContainer.getBoundingClientRect();
+                const currentTransform = new DOMMatrix(getComputedStyle(videoContainer).transform);
+                videoContainer.style.transform = `translate(${currentTransform.e}px, ${currentTransform.f}px) scale(${state.scale})`;
+
+                state.initialPinchDist = currentDist; // Actualizar para el siguiente movimiento
+            }
         }
 
-        function onTouchEnd(e) {
-            state.activeGesture = null;
+        function onPointerUp(e) {
+            // Limpiar todo al levantar el/los dedo(s)
+            clearTimeout(state.longPressTimer);
+            if (state.isDragging) {
+                // SALIR DEL MODO MOVER
+                state.isDragging = false;
+                videoContainer.style.opacity = '1';
+                // Recalcular la posición en formato transform para coherencia
+                const rect = videoContainer.getBoundingClientRect();
+                videoContainer.style.left = '0px';
+                videoContainer.style.top = '0px';
+                videoContainer.style.transform = `translate(${rect.left}px, ${rect.top}px) scale(${state.scale})`;
+            }
+            if (state.isPinching) {
+                state.isPinching = false;
+            }
         }
 
-        // Asignar los eventos al documento entero
-        document.addEventListener('touchstart', onTouchStart, { passive: false });
-        document.addEventListener('touchmove', onTouchMove, { passive: false });
-        document.addEventListener('touchend', onTouchEnd);
+        document.addEventListener('touchstart', onPointerDown, { passive: false });
+        document.addEventListener('touchmove', onPointerMove, { passive: false });
+        document.addEventListener('touchend', onPointerUp);
 
         // --- Service Worker ---
         window.addEventListener('load', () => {
