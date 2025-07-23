@@ -5,13 +5,16 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <title>VITURE Video Player PWA</title>
 
-    <link rel="manifest" href="data:application/json;base64,ewogICJuYW1lIjogIlZJVFVSRSBWaWRlbyBQbGF5ZXIiLAogICJzaG9ydF9uYW1lIjogIlZpdHVyZVBsYXllciIsCiAgImRlc2NyaXB0aW9uIjogIlJlcHJvZHVjdG9yIGRlIHZpZGVvIG9wdGltaXphZG8gcGFyYSBnYWZhcyBWaXR1cmUiLAogICJzdGFydF91cmwiOiAiLiIsCiAgImRpc3BsYXkiOiAiZnVsbHNjcmVlbiIsCiAgIm9yaWVudGF0aW9uIjogImxhbmRzY2FwZSIsCiAgInRoZW1lX2NvbG9yIjogIiMwMDAwMDAiLAogICJiYWNrZ3JvdW5kX2NvbG9yIjogIiMwMDAwMDAiLAogICJpY29ucyI6IFsKICAgIHsKICAgICAgInNyYyI6ICJkYXRhOmltYWdlL3N2Zyt4bWw7YmFzZTY0LFBITjJaeUIzYVdSMGFEMGlOVEV5SWlCb1pXbG5hSFE5SWpVeE1pSWdkbWxsZDBKdmVEMGlNQ0F3SURVMU1pQTFNVElpSUdacGJHdzlJaU13TURBaVBpQmliM2d5UGpKSGF6QjdZMVJuT1R0SmNubFRSakoyTmpoa2FqVmFaVEJqV1hKSWJTczRhVzkwTTJsQ2EwWmhkR05CZFhobWVTc3dPV05VV0V0VU1WSmxjV1pHV0ZKeFduVlpOa0lyZWsxTWFHaEVkRTV6YVdkaGRIUk5kak40ZFZab1ptUlBNbVUxUkhadVRVZEZZVmQzVkZJPUlpOCtQQzl6ZG1jKyIsCiAgICAgICJzaXplcyI6ICI1MTJ4NTEyIiwKICAgICAgInR5cGUiOiAiaW1hZ2Uvc3ZnK3htbCIKICAgIH0KICBdLAogICJjYXRlZ29yaWVzIjogWyJ1dGlsaXRpZXMiLCAidmlkZW8iXQp9">
+    <link rel="manifest" href="manifest.json">
+    <link rel="apple-touch-icon" href="icon-512.png">
+
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-fullscreen">
     <meta name="apple-mobile-web-app-title" content="Viture Player">
     <meta name="application-name" content="Viture Player">
     <meta name="msapplication-TileColor" content="#000000">
+    <meta name="theme-color" content="#000000">
     <meta name="screen-orientation" content="landscape">
 
     <style>
@@ -33,8 +36,6 @@
             -ms-user-select: none;
             user-select: none;
         }
-
-        /* Notificación de instalación PWA */
         .install-banner {
             position: fixed;
             top: 0;
@@ -65,8 +66,6 @@
         .install-banner button:hover {
             background: rgba(255,255,255,0.3);
         }
-
-        /* Contenedor del reproductor */
         .video-container {
             position: absolute;
             top: 50%;
@@ -79,9 +78,9 @@
             touch-action: none;
             cursor: move;
             z-index: 10;
-            width: 400px; /* Tamaño inicial razonable */
+            width: 400px;
             height: 300px;
-            will-change: transform, width, height; /* Optimización de rendimiento */
+            will-change: transform, width, height;
         }
         @media screen and (max-width: 1024px) {
             .video-container {
@@ -93,14 +92,14 @@
         }
         @media screen and (min-width: 1025px) {
             .video-container {
-                resize: both; /* Permite redimensionar con el ratón en escritorio */
+                resize: both;
                 overflow: hidden;
                 min-width: 300px;
                 min-height: 200px;
                 max-width: 90vw;
                 max-height: 90vh;
             }
-            .video-container::after { /* Icono de redimensionamiento */
+            .video-container::after {
                 content: '';
                 position: absolute;
                 bottom: 0;
@@ -115,10 +114,8 @@
             width: 100%;
             height: 100%;
             display: block;
-            object-fit: contain; /* Ajusta el video al contenedor sin cortar */
+            object-fit: contain;
         }
-
-        /* Botones de control */
         .controls {
             position: fixed;
             top: 20px;
@@ -160,13 +157,11 @@
             background: rgba(0,0,0,0.9);
             transform: scale(1.1);
         }
-
-        /* Indicador de orientación forzada */
         .orientation-lock {
             position: fixed;
             bottom: 20px;
             left: 20px;
-            background: rgba(0,128,0,0.8); /* Verde por defecto */
+            background: rgba(0,128,0,0.8);
             color: white;
             padding: 8px 16px;
             border-radius: 20px;
@@ -179,9 +174,8 @@
             opacity: 1;
         }
         .orientation-lock.warning {
-            background: rgba(255,165,0,0.9); /* Naranja para advertencia */
+            background: rgba(255,165,0,0.9);
         }
-
         #fileInput {
             display: none;
         }
@@ -221,7 +215,6 @@
         const installBtn = document.getElementById('installBtn');
         const dismissBtn = document.getElementById('dismissBtn');
 
-        // Detectar si estamos en móvil o con capacidades táctiles
         const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || window.innerWidth <= 1024;
         const isTouch = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
 
@@ -243,7 +236,7 @@
                 const { outcome } = await deferredPrompt.userChoice;
                 if (outcome === 'accepted') {
                     installBanner.classList.remove('show');
-                    isInstalled = true; // Actualizar estado
+                    isInstalled = true;
                 }
                 deferredPrompt = null;
             }
@@ -253,16 +246,15 @@
             installBanner.classList.remove('show');
         });
 
-        // Evento para detectar si la PWA ya está instalada al inicio
         window.matchMedia('(display-mode: standalone)').addEventListener('change', (e) => {
             isInstalled = e.matches;
             if (isInstalled) {
                 installBanner.classList.remove('show');
-                lockOrientation(); // Intentar bloquear si se acaba de instalar
+                lockOrientation();
             }
         });
 
-        // ===== BLOQUEO DE ORIENTACIÓN MEJORADO =====
+        // ===== BLOQUEO DE ORIENTACIÓN =====
         let orientationLocked = false;
 
         async function lockOrientation() {
@@ -270,11 +262,11 @@
                 if (screen.orientation && screen.orientation.lock) {
                     await screen.orientation.lock('landscape');
                     orientationLocked = true;
-                    orientationIndicator.textContent = 'Orientación bloqueada (Landscape)';
+                    orientationIndicator.textContent = 'Orientación bloqueada';
                     orientationIndicator.classList.remove('warning');
                     orientationIndicator.classList.add('active');
-                    lockBtn.innerHTML = '🔒'; // Candado cerrado
-                    lockBtn.style.background = 'rgba(0,128,0,0.8)'; // Color verde
+                    lockBtn.innerHTML = '🔒';
+                    lockBtn.style.background = 'rgba(0,128,0,0.8)';
                     setTimeout(() => { orientationIndicator.classList.remove('active'); }, 2000);
                     return true;
                 }
@@ -283,9 +275,9 @@
                 orientationLocked = false;
                 orientationIndicator.textContent = 'Bloqueo FALLIDO. Gira tu dispositivo.';
                 orientationIndicator.classList.add('warning', 'active');
-                lockBtn.innerHTML = '🔓'; // Candado abierto
-                lockBtn.style.background = 'rgba(128,0,0,0.8)'; // Color rojo
-                setTimeout(() => { orientationIndicator.classList.remove('active'); orientationIndicator.classList.remove('warning'); }, 3000);
+                lockBtn.innerHTML = '🔓';
+                lockBtn.style.background = 'rgba(128,0,0,0.8)';
+                setTimeout(() => { orientationIndicator.classList.remove('active', 'warning'); }, 3000);
             }
             return false;
         }
@@ -295,8 +287,8 @@
                 if (screen.orientation && screen.orientation.unlock) {
                     screen.orientation.unlock();
                     orientationLocked = false;
-                    lockBtn.innerHTML = '🔓'; // Candado abierto
-                    lockBtn.style.background = 'rgba(0,0,0,0.8)'; // Color normal
+                    lockBtn.innerHTML = '🔓';
+                    lockBtn.style.background = 'rgba(0,0,0,0.8)';
                     orientationIndicator.textContent = 'Orientación liberada';
                     orientationIndicator.classList.add('active');
                     setTimeout(() => { orientationIndicator.classList.remove('active'); }, 2000);
@@ -305,30 +297,19 @@
                 console.warn('Error al liberar orientación:', error);
             }
         }
-
-        // Monitorear cambios de visibilidad (bloqueo/desbloqueo del teléfono)
+        
         document.addEventListener('visibilitychange', () => {
             if (document.visibilityState === 'visible' && isInstalled) {
-                console.log('PWA visible, reintentando bloqueo de orientación...');
                 lockOrientation();
             }
         });
 
-        // Intentar bloquear orientación al cargar si ya está instalada
         window.addEventListener('load', async () => {
             if (isInstalled) {
                 await lockOrientation();
-            } else {
-                // Si no está instalado como PWA, mostrar banner después de un tiempo
-                setTimeout(() => {
-                    if (!isInstalled) { // Comprobar de nuevo por si se instaló en el interim
-                        installBanner.classList.add('show');
-                    }
-                }, 3000);
             }
         });
 
-        // Botón manual de bloqueo/desbloqueo
         lockBtn.addEventListener('click', async () => {
             if (orientationLocked) {
                 unlockOrientation();
@@ -338,9 +319,7 @@
         });
 
         // ===== CONTROLES DE VIDEO =====
-        loadBtn.addEventListener('click', () => {
-            fileInput.click();
-        });
+        loadBtn.addEventListener('click', () => fileInput.click());
 
         centerBtn.addEventListener('click', () => {
             videoContainer.style.left = '50%';
@@ -354,21 +333,14 @@
                 if (videoPlayer.src && videoPlayer.src.startsWith('blob:')) {
                     URL.revokeObjectURL(videoPlayer.src);
                 }
-                const url = URL.createObjectURL(file);
-                videoPlayer.src = url;
+                videoPlayer.src = URL.createObjectURL(file);
             }
         });
 
         // ===== FUNCIONALIDAD DE ARRASTRAR Y REDIMENSIONAR =====
         let isDragging = false;
         let isPinching = false;
-        let startX = 0;
-        let startY = 0;
-        let initialLeft = 0;
-        let initialTop = 0;
-        let initialDistance = 0;
-        let initialWidth = 0;
-        let initialHeight = 0;
+        let startX, startY, initialLeft, initialTop, initialDistance, initialWidth, initialHeight;
 
         function getDistance(touches) {
             const dx = touches[0].clientX - touches[1].clientX;
@@ -376,7 +348,6 @@
             return Math.sqrt(dx * dx + dy * dy);
         }
 
-        // Restringe el movimiento para que el video no se salga de la pantalla
         function constrainToScreen(x, y, width, height) {
             const maxX = window.innerWidth - width;
             const maxY = window.innerHeight - height;
@@ -389,186 +360,130 @@
         function setPosition(x, y) {
             videoContainer.style.left = x + 'px';
             videoContainer.style.top = y + 'px';
-            videoContainer.style.transform = 'none'; // Desactivar transform: translate para usar left/top
+            videoContainer.style.transform = 'none';
         }
 
+        function handleDragStart(e) {
+            isDragging = true;
+            isPinching = false;
+            const touch = e.touches ? e.touches[0] : e;
+            startX = touch.clientX;
+            startY = touch.clientY;
+            const rect = videoContainer.getBoundingClientRect();
+            initialLeft = rect.left;
+            initialTop = rect.top;
+        }
+
+        function handlePinchStart(e) {
+            isDragging = false;
+            isPinching = true;
+            initialDistance = getDistance(e.touches);
+            const rect = videoContainer.getBoundingClientRect();
+            initialWidth = rect.width;
+            initialHeight = rect.height;
+        }
+        
         // Eventos de arrastre para móvil (táctil)
-        if (isTouch) {
-            videoContainer.addEventListener('touchstart', (e) => {
-                e.preventDefault(); // Prevenir scroll y zoom predeterminado
-                if (e.touches.length === 1) {
-                    isDragging = true;
-                    isPinching = false;
-                    startX = e.touches[0].clientX;
-                    startY = e.touches[0].clientY;
-                    const rect = videoContainer.getBoundingClientRect();
-                    initialLeft = rect.left;
-                    initialTop = rect.top;
-                } else if (e.touches.length === 2) {
-                    isDragging = false;
-                    isPinching = true;
-                    initialDistance = getDistance(e.touches);
-                    const rect = videoContainer.getBoundingClientRect();
-                    initialWidth = rect.width;
-                    initialHeight = rect.height;
-                }
-            }, { passive: false }); // Usar passive: false para prevenirDefault
+        videoContainer.addEventListener('touchstart', (e) => {
+            if (e.target === videoPlayer) return; // FIX: Permite usar controles del video
 
-            document.addEventListener('touchmove', (e) => {
-                if (isDragging && e.touches.length === 1) {
-                    e.preventDefault();
-                    const deltaX = e.touches[0].clientX - startX;
-                    const deltaY = e.touches[0].clientY - startY;
-                    const newX = initialLeft + deltaX;
-                    const newY = initialTop + deltaY;
-                    const rect = videoContainer.getBoundingClientRect();
-                    const constrained = constrainToScreen(newX, newY, rect.width, rect.height);
-                    setPosition(constrained.x, constrained.y);
-                } else if (isPinching && e.touches.length === 2) {
-                    e.preventDefault();
-                    const currentDistance = getDistance(e.touches);
-                    const scale = currentDistance / initialDistance;
+            if (e.touches.length === 1) {
+                e.preventDefault();
+                handleDragStart(e);
+            } else if (e.touches.length === 2) {
+                e.preventDefault();
+                handlePinchStart(e);
+            }
+        }, { passive: false });
 
-                    // Ajustar la velocidad de redimensionamiento si es necesario
-                    const redimensionSpeed = 1; // Ajusta este valor (ej: 0.8 para más lento, 1.2 para más rápido)
-                    const actualScale = 1 + (scale - 1) * redimensionSpeed; // Ajustar la escala
-
-                    const newWidth = Math.max(200, Math.min(window.innerWidth * 0.95, initialWidth * actualScale));
-                    const newHeight = Math.max(150, Math.min(window.innerHeight * 0.95, initialHeight * actualScale));
-                    videoContainer.style.width = newWidth + 'px';
-                    videoContainer.style.height = newHeight + 'px';
-
-                    // Re-centrar o ajustar posición para que no se salga de pantalla al redimensionar
-                    const rect = videoContainer.getBoundingClientRect();
-                    const currentX = rect.left;
-                    const currentY = rect.top;
-                    const constrained = constrainToScreen(currentX, currentY, newWidth, newHeight);
-                    setPosition(constrained.x, constrained.y);
-                }
-            }, { passive: false });
-
-            document.addEventListener('touchend', (e) => {
-                if (e.touches.length === 0) {
-                    isDragging = false;
-                    isPinching = false;
-                }
-            });
-        }
-
-        // Eventos de arrastre para PC (ratón)
-        if (!isMobile) {
-            videoContainer.addEventListener('mousedown', (e) => {
-                // Solo arrastrar si no se hizo click en el video o los controles por defecto
-                if (e.target === videoContainer || e.target === videoPlayer) { // Permite arrastrar desde el video
-                    isDragging = true;
-                    startX = e.clientX;
-                    startY = e.clientY;
-                    const rect = videoContainer.getBoundingClientRect();
-                    initialLeft = rect.left;
-                    initialTop = rect.top;
-                    e.preventDefault(); // Previene la selección de texto
-                    document.body.style.cursor = 'grabbing';
-                    videoContainer.style.cursor = 'grabbing';
-                }
-            });
-            document.addEventListener('mousemove', (e) => {
-                if (!isDragging) return;
-                const deltaX = e.clientX - startX;
-                const deltaY = e.clientY - startY;
+        document.addEventListener('touchmove', (e) => {
+            if (isDragging && e.touches.length === 1) {
+                e.preventDefault();
+                const deltaX = e.touches[0].clientX - startX;
+                const deltaY = e.touches[0].clientY - startY;
                 const newX = initialLeft + deltaX;
                 const newY = initialTop + deltaY;
                 const rect = videoContainer.getBoundingClientRect();
                 const constrained = constrainToScreen(newX, newY, rect.width, rect.height);
                 setPosition(constrained.x, constrained.y);
-            });
-            document.addEventListener('mouseup', () => {
-                if (isDragging) {
-                    isDragging = false;
-                    document.body.style.cursor = '';
-                    videoContainer.style.cursor = 'move';
-                }
-            });
-        }
-
-        // Prevenir comportamientos no deseados (zoom del navegador, etc.)
-        document.addEventListener('touchstart', (e) => {
-            if (e.touches.length > 1) {
+            } else if (isPinching && e.touches.length === 2) {
                 e.preventDefault();
+                const currentDistance = getDistance(e.touches);
+                const scale = currentDistance / initialDistance;
+                const newWidth = Math.max(200, Math.min(window.innerWidth * 0.95, initialWidth * scale));
+                const newHeight = Math.max(150, Math.min(window.innerHeight * 0.95, initialHeight * scale));
+                videoContainer.style.width = newWidth + 'px';
+                videoContainer.style.height = newHeight + 'px';
+
+                const rect = videoContainer.getBoundingClientRect();
+                const constrained = constrainToScreen(rect.left, rect.top, newWidth, newHeight);
+                setPosition(constrained.x, constrained.y);
             }
         }, { passive: false });
-        document.addEventListener('gesturestart', (e) => e.preventDefault());
-        document.addEventListener('gesturechange', (e) => e.preventDefault());
-        document.addEventListener('gestureend', (e) => e.preventDefault());
 
-        // Atajos de teclado (para uso en escritorio, si se abre en navegador)
+        document.addEventListener('touchend', (e) => {
+            if (e.touches.length < 2) isPinching = false;
+            if (e.touches.length < 1) isDragging = false;
+        });
+
+        // Eventos de arrastre para PC (ratón)
+        videoContainer.addEventListener('mousedown', (e) => {
+            if (e.target === videoPlayer) return; // FIX: Permite usar controles del video
+            e.preventDefault();
+            handleDragStart(e);
+            document.body.style.cursor = 'grabbing';
+            videoContainer.style.cursor = 'grabbing';
+        });
+
+        document.addEventListener('mousemove', (e) => {
+            if (!isDragging) return;
+            const deltaX = e.clientX - startX;
+            const deltaY = e.clientY - startY;
+            const newX = initialLeft + deltaX;
+            const newY = initialTop + deltaY;
+            const rect = videoContainer.getBoundingClientRect();
+            const constrained = constrainToScreen(newX, newY, rect.width, rect.height);
+            setPosition(constrained.x, constrained.y);
+        });
+        
+        document.addEventListener('mouseup', () => {
+            if (isDragging) {
+                isDragging = false;
+                document.body.style.cursor = '';
+                videoContainer.style.cursor = 'move';
+            }
+        });
+
+        // Atajos de teclado
         if (!isMobile) {
             document.addEventListener('keydown', (e) => {
-                switch(e.key) {
-                    case ' ': e.preventDefault(); if (videoPlayer.paused) { videoPlayer.play(); } else { videoPlayer.pause(); } break;
-                    case 'c': case 'C': e.preventDefault(); centerBtn.click(); break;
-                    case 'o': case 'O': e.preventDefault(); loadBtn.click(); break;
-                    case 'l': case 'L': e.preventDefault(); lockBtn.click(); break;
+                switch(e.key.toLowerCase()) {
+                    case ' ': e.preventDefault(); videoPlayer.paused ? videoPlayer.play() : videoPlayer.pause(); break;
+                    case 'c': e.preventDefault(); centerBtn.click(); break;
+                    case 'o': e.preventDefault(); loadBtn.click(); break;
+                    case 'l': e.preventDefault(); lockBtn.click(); break;
                 }
             });
         }
-
+        
         // Limpieza al salir
         window.addEventListener('beforeunload', () => {
             try {
                 if (screen.orientation && screen.orientation.unlock) {
-                    screen.orientation.unlock(); // Intentar desbloquear al cerrar
+                    screen.orientation.unlock();
                 }
-            } catch (error) { /* Ignorar errores */ }
+            } catch (error) {}
             if (videoPlayer.src && videoPlayer.src.startsWith('blob:')) {
-                URL.revokeObjectURL(videoPlayer.src); // Liberar memoria del video
+                URL.revokeObjectURL(videoPlayer.src);
             }
         });
 
-        // Service Worker para PWA (necesario para la instalación y caché offline)
+        // Service Worker para PWA (requiere archivo sw.js)
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
-                // Código del Service Worker como Blob (para que esté autocontenido)
-                const swCode = `
-                    const CACHE_NAME = 'viture-player-v2'; // Versión actualizada del caché
-                    const urlsToCache = ['/']; // Caché solo el archivo HTML/PWA principal
-
-                    self.addEventListener('install', (event) => {
-                        event.waitUntil(
-                            caches.open(CACHE_NAME)
-                                .then((cache) => cache.addAll(urlsToCache))
-                                .then(() => self.skipWaiting()) // Forzar activación del nuevo SW
-                        );
-                    });
-
-                    self.addEventListener('activate', (event) => {
-                        event.waitUntil(
-                            caches.keys().then((cacheNames) => {
-                                return Promise.all(
-                                    cacheNames.map((cacheName) => {
-                                        if (cacheName !== CACHE_NAME) {
-                                            return caches.delete(cacheName); // Eliminar cachés viejos
-                                        }
-                                    })
-                                );
-                            }).then(() => self.clients.claim()) // Tomar control de las pestañas existentes
-                        );
-                    });
-
-                    self.addEventListener('fetch', (event) => {
-                        event.respondWith(
-                            caches.match(event.request)
-                                .then((response) => {
-                                    return response || fetch(event.request);
-                                })
-                        );
-                    });
-                `;
-                const blob = new Blob([swCode], { type: 'application/javascript' });
-                const swUrl = URL.createObjectURL(blob); // Crear URL de objeto para el Blob
-
-                navigator.serviceWorker.register(swUrl)
-                    .then(() => console.log('Service Worker registrado y actualizado'))
-                    .catch((error) => console.log('Error registrando Service Worker:', error));
+                navigator.serviceWorker.register('sw.js')
+                    .then(registration => console.log('Service Worker registrado con éxito:', registration))
+                    .catch(error => console.log('Error registrando Service Worker:', error));
             });
         }
     </script>
